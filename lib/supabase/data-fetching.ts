@@ -14,7 +14,7 @@ export function getClientSideClient() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     )
   }
-  return clientSideClient
+  return clientSideClient || supabaseClient
 }
 
 // API route data fetching functions for pages directory

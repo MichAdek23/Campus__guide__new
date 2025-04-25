@@ -14,6 +14,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
 }
 
 export default nextConfig
