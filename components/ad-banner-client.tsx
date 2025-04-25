@@ -13,12 +13,12 @@ interface Ad {
   position: string
 }
 
-interface AdBannerProps {
+interface AdBannerClientProps {
   position: string
   className?: string
 }
 
-export function AdBannerClient({ position, className }: AdBannerProps) {
+export function AdBannerClient({ position, className }: AdBannerClientProps) {
   const [ad, setAd] = useState<Ad | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 

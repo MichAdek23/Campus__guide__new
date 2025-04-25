@@ -1,48 +1,130 @@
 "use client"
 
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { supabase } from "@/lib/supabase/client"
 
-export function NewsFilters() {
+interface Category {
+  id: string
+  name: string
+}
+
+interface NewsFiltersProps {
+  categories?: Category[]
+}
+
+export function NewsFilters({ categories = [] }: NewsFiltersProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const [search, setSearch] = useState(searchParams.get("search") || "")
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    searchParams.get("category")?.split(",").filter(Boolean) || [],
+  )
+  const [source, setSource] = useState(searchParams.get("source") || "all")
+  const [date, setDate] = useState(searchParams.get("date") || "any")
+  const [loadingCategories, setLoadingCategories] = useState(categories.length === 0)
+  const [categoryList, setCategoryList] = useState<Category[]>(categories)
+
+  useEffect(() => {
+    if (categories.length === 0) {
+      async function fetchCategories() {
+        const { data } = await supabase
+          .from("categories")
+          .select("*")
+          .eq("type", "news")
+          .order("name", { ascending: true })
+
+        if (data) {
+          setCategoryList(data)
+        }
+        setLoadingCategories(false)
+      }
+
+      fetchCategories()
+    }
+  }, [categories])
+
+  const handleCategoryChange = (categoryId: string, checked: boolean) => {
+    setSelectedCategories((prev) => {
+      if (checked) {
+        return [...prev, categoryId]
+      } else {
+        return prev.filter((id) => id !== categoryId)
+      }
+    })
+  }
+
+  const applyFilters = () => {
+    const params = new URLSearchParams()
+
+    if (search) {
+      params.set("search", search)
+    }
+
+    if (selectedCategories.length > 0) {
+      params.set("category", selectedCategories.join(","))
+    }
+
+    if (source && source !== "all") {
+      params.set("source", source)
+    }
+
+    if (date && date !== "any") {
+      params.set("date", date)
+    }
+
+    params.set("page", "1")
+    router.push(`/news?${params.toString()}`)
+  }
+
+  const resetFilters = () => {
+    setSearch("")
+    setSelectedCategories([])
+    setSource("all")
+    setDate("any")
+    router.push("/news")
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h3 className="font-medium mb-3">Search</h3>
-        <Input placeholder="Search news..." />
+        <Input placeholder="Search news..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       <div>
         <h3 className="font-medium mb-3">Category</h3>
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <Checkbox id="academic-news" />
-            <Label htmlFor="academic-news">Academic</Label>
+        {loadingCategories ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-6 bg-muted rounded animate-pulse"></div>
+            ))}
           </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox id="policy-news" />
-            <Label htmlFor="policy-news">Policy</Label>
+        ) : (
+          <div className="space-y-2">
+            {categoryList.map((category) => (
+              <div key={category.id} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`category-${category.id}`}
+                  checked={selectedCategories.includes(category.id)}
+                  onCheckedChange={(checked) => handleCategoryChange(category.id, checked === true)}
+                />
+                <Label htmlFor={`category-${category.id}`}>{category.name}</Label>
+              </div>
+            ))}
           </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox id="achievement-news" />
-            <Label htmlFor="achievement-news">Achievement</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox id="campus-news" />
-            <Label htmlFor="campus-news">Campus Life</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox id="research-news" />
-            <Label htmlFor="research-news">Research</Label>
-          </div>
-        </div>
+        )}
       </div>
 
       <div>
         <h3 className="font-medium mb-3">Source</h3>
-        <Select>
+        <Select value={source} onValueChange={setSource}>
           <SelectTrigger>
             <SelectValue placeholder="Select source" />
           </SelectTrigger>
@@ -58,7 +140,7 @@ export function NewsFilters() {
 
       <div>
         <h3 className="font-medium mb-3">Date</h3>
-        <Select>
+        <Select value={date} onValueChange={setDate}>
           <SelectTrigger>
             <SelectValue placeholder="Select date range" />
           </SelectTrigger>
@@ -72,7 +154,12 @@ export function NewsFilters() {
         </Select>
       </div>
 
-      <Button className="w-full">Apply Filters</Button>
+      <Button className="w-full" onClick={applyFilters}>
+        Apply Filters
+      </Button>
+      <Button variant="outline" className="w-full" onClick={resetFilters}>
+        Reset Filters
+      </Button>
     </div>
   )
 }

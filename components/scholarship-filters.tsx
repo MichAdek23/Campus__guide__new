@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+import { supabase } from "@/lib/supabase/client"
 
 interface Category {
   id: string
@@ -16,10 +17,10 @@ interface Category {
 }
 
 interface ScholarshipFiltersProps {
-  categories: Category[]
+  categories?: Category[]
 }
 
-export function ScholarshipFilters({ categories }: ScholarshipFiltersProps) {
+export function ScholarshipFilters({ categories = [] }: ScholarshipFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -28,6 +29,27 @@ export function ScholarshipFilters({ categories }: ScholarshipFiltersProps) {
   const [location, setLocation] = useState(searchParams.get("location") || "all")
   const [amount, setAmount] = useState([0, 1000000])
   const [deadline, setDeadline] = useState(searchParams.get("deadline") || "any")
+  const [loadingCategories, setLoadingCategories] = useState(categories.length === 0)
+  const [categoryList, setCategoryList] = useState<Category[]>(categories)
+
+  useEffect(() => {
+    if (categories.length === 0) {
+      async function fetchCategories() {
+        const { data } = await supabase
+          .from("categories")
+          .select("*")
+          .eq("type", "scholarship")
+          .order("name", { ascending: true })
+
+        if (data) {
+          setCategoryList(data)
+        }
+        setLoadingCategories(false)
+      }
+
+      fetchCategories()
+    }
+  }, [categories])
 
   const handleCategoryChange = (category: string, checked: boolean) => {
     if (checked) {
@@ -66,18 +88,26 @@ export function ScholarshipFilters({ categories }: ScholarshipFiltersProps) {
 
       <div>
         <h3 className="font-medium mb-3">Category</h3>
-        <div className="space-y-2">
-          {categories.map((category) => (
-            <div key={category.id} className="flex items-center space-x-2">
-              <Checkbox
-                id={category.id}
-                checked={selectedCategories.includes(category.name)}
-                onCheckedChange={(checked) => handleCategoryChange(category.name, checked as boolean)}
-              />
-              <Label htmlFor={category.id}>{category.name}</Label>
-            </div>
-          ))}
-        </div>
+        {loadingCategories ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-6 bg-muted rounded animate-pulse"></div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {categoryList.map((category) => (
+              <div key={category.id} className="flex items-center space-x-2">
+                <Checkbox
+                  id={category.id}
+                  checked={selectedCategories.includes(category.name)}
+                  onCheckedChange={(checked) => handleCategoryChange(category.name, checked as boolean)}
+                />
+                <Label htmlFor={category.id}>{category.name}</Label>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
