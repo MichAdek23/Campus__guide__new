@@ -17,6 +17,70 @@ export function getClientSideClient() {
   return clientSideClient
 }
 
+// API route data fetching functions for pages directory
+export async function getScholarshipsApi(
+  page = 1,
+  limit = 10,
+  filters: {
+    category?: string
+    location?: string
+    deadline?: string
+    search?: string
+    minAmount?: number
+    maxAmount?: number
+  } = {},
+) {
+  const supabase = createApiClient()
+  const startIndex = (page - 1) * limit
+
+  let query = supabase.from("scholarships").select("*, categories(name)", { count: "exact" })
+
+  // Apply filters
+  if (filters.category) {
+    query = query.eq("categories.name", filters.category)
+  }
+
+  if (filters.location) {
+    if (filters.location === "nigeria") {
+      query = query.ilike("location", "%nigeria%")
+    } else if (filters.location === "international") {
+      query = query.not("location", "ilike", "%nigeria%")
+    }
+  }
+
+  if (filters.search) {
+    query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
+  }
+
+  if (filters.deadline) {
+    const now = new Date()
+    const endDate = new Date()
+
+    if (filters.deadline === "week") {
+      endDate.setDate(now.getDate() + 7)
+    } else if (filters.deadline === "month") {
+      endDate.setMonth(now.getMonth() + 1)
+    } else if (filters.deadline === "three_months") {
+      endDate.setMonth(now.getMonth() + 3)
+    }
+
+    if (filters.deadline !== "any") {
+      query = query.lte("deadline", endDate.toISOString())
+    }
+  }
+
+  const { data, error, count } = await query
+    .order("deadline", { ascending: true })
+    .range(startIndex, startIndex + limit - 1)
+
+  if (error) {
+    console.error("Error fetching scholarships:", error)
+    return { scholarships: [], count: 0 }
+  }
+
+  return { scholarships: data, count: count || 0 }
+}
+
 // Scholarships
 export async function getFeaturedScholarships(limit = 3) {
   const supabase = createServerClient()
@@ -98,83 +162,6 @@ export async function getScholarships(
   }
 
   return { scholarships: data, count: count || 0 }
-}
-
-// API route data fetching functions for pages directory
-export async function getScholarshipsApi(
-  page = 1,
-  limit = 10,
-  filters: {
-    category?: string
-    location?: string
-    deadline?: string
-    search?: string
-    minAmount?: number
-    maxAmount?: number
-  } = {},
-) {
-  const supabase = createApiClient()
-  const startIndex = (page - 1) * limit
-
-  let query = supabase.from("scholarships").select("*, categories(name)", { count: "exact" })
-
-  // Apply filters
-  if (filters.category) {
-    query = query.eq("categories.name", filters.category)
-  }
-
-  if (filters.location) {
-    if (filters.location === "nigeria") {
-      query = query.ilike("location", "%nigeria%")
-    } else if (filters.location === "international") {
-      query = query.not("location", "ilike", "%nigeria%")
-    }
-  }
-
-  if (filters.search) {
-    query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`)
-  }
-
-  if (filters.deadline) {
-    const now = new Date()
-    const endDate = new Date()
-
-    if (filters.deadline === "week") {
-      endDate.setDate(now.getDate() + 7)
-    } else if (filters.deadline === "month") {
-      endDate.setMonth(now.getMonth() + 1)
-    } else if (filters.deadline === "three_months") {
-      endDate.setMonth(now.getMonth() + 3)
-    }
-
-    if (filters.deadline !== "any") {
-      query = query.lte("deadline", endDate.toISOString())
-    }
-  }
-
-  const { data, error, count } = await query
-    .order("deadline", { ascending: true })
-    .range(startIndex, startIndex + limit - 1)
-
-  if (error) {
-    console.error("Error fetching scholarships:", error)
-    return { scholarships: [], count: 0 }
-  }
-
-  return { scholarships: data, count: count || 0 }
-}
-
-export async function getScholarshipById(id: string) {
-  const supabase = createServerClient()
-
-  const { data, error } = await supabase.from("scholarships").select("*, categories(name)").eq("id", id).single()
-
-  if (error) {
-    console.error("Error fetching scholarship:", error)
-    return null
-  }
-
-  return data
 }
 
 // Events
@@ -515,4 +502,17 @@ export async function isItemSaved(userId: string, itemId: string, itemType: "sch
   }
 
   return Boolean(data)
+}
+
+export async function getScholarshipById(id: string) {
+  const supabase = createServerClient()
+
+  const { data, error } = await supabase.from("scholarships").select("*, categories(name)").eq("id", id).single()
+
+  if (error) {
+    console.error("Error fetching scholarship:", error)
+    return null
+  }
+
+  return data
 }
