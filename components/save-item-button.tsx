@@ -1,53 +1,46 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Bookmark } from "lucide-react"
+import { Bookmark, BookmarkCheck } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { useRouter } from "next/navigation"
-import { saveItem, unsaveItem, isItemSaved } from "@/lib/supabase/data-fetching"
+import { getClientSideClient } from "@/lib/supabase/data-fetching"
 
 interface SaveItemButtonProps {
   itemId: string
   itemType: "scholarship" | "event" | "news"
-  className?: string
+  initialSaved?: boolean
 }
 
-export function SaveItemButton({ itemId, itemType, className }: SaveItemButtonProps) {
-  const { user } = useAuth()
-  const router = useRouter()
-  const [saved, setSaved] = useState(false)
+export function SaveItemButton({ itemId, itemType, initialSaved = false }: SaveItemButtonProps) {
+  const [isSaved, setIsSaved] = useState(initialSaved)
   const [isLoading, setIsLoading] = useState(false)
+  const { user } = useAuth()
 
-  useEffect(() => {
-    const checkIfSaved = async () => {
-      if (user) {
-        const result = await isItemSaved(user.id, itemId, itemType)
-        setSaved(result)
-      }
-    }
-
-    checkIfSaved()
-  }, [user, itemId, itemType])
-
-  const handleSaveToggle = async () => {
+  const handleSave = async () => {
     if (!user) {
-      router.push(`/auth/sign-in?redirect=${encodeURIComponent(window.location.pathname)}`)
+      // Redirect to login or show login modal
       return
     }
 
     setIsLoading(true)
 
     try {
-      if (saved) {
-        await unsaveItem(user.id, itemId, itemType)
-        setSaved(false)
+      const supabase = getClientSideClient()
+
+      if (isSaved) {
+        // Remove from saved items
+        await supabase.from("saved_items").delete().match({ user_id: user.id, item_id: itemId, item_type: itemType })
+
+        setIsSaved(false)
       } else {
-        await saveItem(user.id, itemId, itemType)
-        setSaved(true)
+        // Add to saved items
+        await supabase.from("saved_items").insert({ user_id: user.id, item_id: itemId, item_type: itemType })
+
+        setIsSaved(true)
       }
     } catch (error) {
-      console.error("Error toggling save status:", error)
+      console.error("Error saving item:", error)
     } finally {
       setIsLoading(false)
     }
@@ -55,14 +48,23 @@ export function SaveItemButton({ itemId, itemType, className }: SaveItemButtonPr
 
   return (
     <Button
-      variant={saved ? "default" : "outline"}
-      size="lg"
-      onClick={handleSaveToggle}
-      disabled={isLoading}
-      className={className}
+      variant="ghost"
+      size="sm"
+      onClick={handleSave}
+      disabled={isLoading || !user}
+      className="flex items-center gap-1"
     >
-      <Bookmark className="mr-2 h-4 w-4" fill={saved ? "currentColor" : "none"} />
-      {saved ? "Saved" : "Save"}
+      {isSaved ? (
+        <>
+          <BookmarkCheck className="h-4 w-4" />
+          <span>Saved</span>
+        </>
+      ) : (
+        <>
+          <Bookmark className="h-4 w-4" />
+          <span>Save</span>
+        </>
+      )}
     </Button>
   )
 }
