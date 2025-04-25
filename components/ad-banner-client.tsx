@@ -1,69 +1,85 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { getClientSideClient } from "@/lib/supabase/data-fetching"
+import { cn } from "@/lib/utils"
+import { supabase } from "@/lib/supabase/client"
 
 interface Ad {
   id: string
-  title: string
+  name: string
+  description: string | null
   image_url: string
-  link_url: string
+  link_url: string | null
   position: string
 }
 
 interface AdBannerProps {
-  position: "sidebar" | "content" | "header"
+  position: string
   className?: string
 }
 
-export default function AdBanner({ position, className = "" }: AdBannerProps) {
+export function AdBannerClient({ position, className }: AdBannerProps) {
   const [ad, setAd] = useState<Ad | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchAd() {
-      try {
-        const supabase = getClientSideClient()
+      const now = new Date().toISOString()
 
-        const { data } = await supabase
-          .from("ads")
-          .select()
-          .eq("position", position)
-          .eq("is_active", true)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single()
+      const { data, error } = await supabase
+        .from("advertisements")
+        .select("*")
+        .eq("position", position)
+        .eq("is_active", true)
+        .lte("start_date", now)
+        .gte("end_date", now)
+        .order("created_at", { ascending: false })
+        .limit(1)
 
-        setAd(data || null)
-      } catch (error) {
-        console.error("Error fetching ad:", error)
-      } finally {
-        setLoading(false)
+      if (!error && data && data.length > 0) {
+        setAd(data[0])
       }
+      setIsLoading(false)
     }
 
     fetchAd()
   }, [position])
 
-  if (loading || !ad) {
-    return null
+  if (isLoading) {
+    return (
+      <div
+        className={cn(
+          "w-full rounded-lg bg-muted/50 border border-dashed flex items-center justify-center h-24",
+          className,
+        )}
+      >
+        <p className="text-muted-foreground text-sm font-medium">Loading advertisement...</p>
+      </div>
+    )
+  }
+
+  if (!ad) {
+    return (
+      <div
+        className={cn(
+          "w-full rounded-lg bg-muted/50 border border-dashed flex items-center justify-center h-24",
+          className,
+        )}
+      >
+        <p className="text-muted-foreground text-sm font-medium">Advertisement</p>
+      </div>
+    )
   }
 
   return (
-    <div className={`rounded-lg overflow-hidden border ${className}`}>
-      <Link href={ad.link_url} target="_blank" rel="noopener noreferrer">
-        <div className="relative aspect-[5/1]">
-          <Image
-            src={ad.image_url || "/placeholder.svg?height=200&width=1000"}
-            alt={ad.title}
-            fill
-            className="object-cover"
-          />
-        </div>
-        <div className="p-2 text-center text-xs text-muted-foreground">Advertisement: {ad.title}</div>
-      </Link>
-    </div>
+    <a
+      href={ad.link_url || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn("w-full rounded-lg overflow-hidden block relative h-24", className)}
+    >
+      <img src={ad.image_url || "/placeholder.svg"} alt={ad.name} className="w-full h-full object-cover" />
+      <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1 rounded">Ad</div>
+    </a>
   )
 }

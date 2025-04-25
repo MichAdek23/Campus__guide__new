@@ -1,80 +1,132 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
+import { CalendarDays, Eye } from "lucide-react"
+import { format } from "date-fns"
+import { supabase } from "@/lib/supabase/client"
 
 interface News {
   id: string
   title: string
-  summary: string
-  image_url: string
+  excerpt: string
   created_at: string
+  categories: { name: string } | null
+  views: number
+  image_url: string | null
 }
 
 interface LatestNewsProps {
-  news: News[]
-  loading: boolean
+  limit?: number
 }
 
-export default function LatestNews({ news, loading }: LatestNewsProps) {
-  if (loading) {
+export function LatestNewsClient({ limit = 3 }: LatestNewsProps) {
+  const [news, setNews] = useState<News[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchNews() {
+      const { data, error } = await supabase
+        .from("news")
+        .select("*, categories(name)")
+        .order("created_at", { ascending: false })
+        .limit(limit)
+
+      if (!error && data) {
+        setNews(data)
+      }
+      setIsLoading(false)
+    }
+
+    fetchNews()
+  }, [limit])
+
+  if (isLoading) {
     return (
-      <section className="py-8">
-        <h2 className="text-3xl font-bold mb-6">Latest News</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <div className="relative w-full h-48">
-                <Skeleton className="absolute inset-0" />
-              </div>
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-2/3" />
-              </CardContent>
-              <CardFooter>
-                <Skeleton className="h-10 w-full" />
-              </CardFooter>
-            </Card>
-          ))}
+      <section className="py-12">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">Latest News</h2>
+            <p className="text-muted-foreground mt-1">Loading news...</p>
+          </div>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {Array(limit)
+            .fill(0)
+            .map((_, i) => (
+              <Card key={i} className="flex flex-col">
+                <div className="relative h-48 w-full bg-muted"></div>
+                <CardHeader className="pb-3">
+                  <div className="h-6 bg-muted rounded w-3/4 mb-2"></div>
+                </CardHeader>
+                <CardContent className="pb-4 flex-grow">
+                  <div className="h-4 bg-muted rounded w-full mb-2"></div>
+                  <div className="h-4 bg-muted rounded w-full mb-2"></div>
+                  <div className="h-4 bg-muted rounded w-2/3 mb-4"></div>
+                  <div className="flex justify-between">
+                    <div className="h-4 bg-muted rounded w-1/3"></div>
+                    <div className="h-4 bg-muted rounded w-1/4"></div>
+                  </div>
+                </CardContent>
+                <CardFooter className="pt-0 mt-auto">
+                  <div className="h-10 bg-muted rounded w-full"></div>
+                </CardFooter>
+              </Card>
+            ))}
         </div>
       </section>
     )
   }
 
   return (
-    <section className="py-8">
-      <h2 className="text-3xl font-bold mb-6">Latest News</h2>
+    <section className="py-12">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Latest News</h2>
+          <p className="text-muted-foreground mt-1">Stay updated with the latest educational news</p>
+        </div>
+        <Button asChild variant="outline">
+          <Link href="/news">View All</Link>
+        </Button>
+      </div>
+
       {news.length === 0 ? (
-        <p className="text-muted-foreground">No news available at the moment.</p>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No news articles available at the moment.</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {news.map((item) => (
-            <Card key={item.id}>
-              <div className="relative w-full h-48">
-                <Image
-                  src={item.image_url || "/placeholder.svg?height=200&width=400"}
+            <Card key={item.id} className="flex flex-col">
+              <div className="relative h-48 w-full overflow-hidden rounded-t-lg">
+                <img
+                  src={item.image_url || "/placeholder.svg?height=200&width=300"}
                   alt={item.title}
-                  fill
-                  className="object-cover"
+                  className="object-cover w-full h-full"
                 />
+                <Badge className="absolute top-2 right-2">{item.categories?.name || "General"}</Badge>
               </div>
-              <CardHeader>
-                <CardTitle className="line-clamp-2">{item.title}</CardTitle>
-                <p className="text-sm text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</p>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl line-clamp-2">{item.title}</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="line-clamp-3 text-sm text-muted-foreground">{item.summary}</p>
+              <CardContent className="pb-4 flex-grow">
+                <p className="text-muted-foreground line-clamp-3 mb-4">{item.excerpt}</p>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-1">
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">{format(new Date(item.created_at), "MMM d, yyyy")}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">{item.views}</span>
+                  </div>
+                </div>
               </CardContent>
-              <CardFooter>
-                <Button asChild className="w-full">
+              <CardFooter className="pt-0 mt-auto">
+                <Button asChild variant="outline" className="w-full">
                   <Link href={`/news/${item.id}`}>Read More</Link>
                 </Button>
               </CardFooter>
@@ -82,11 +134,6 @@ export default function LatestNews({ news, loading }: LatestNewsProps) {
           ))}
         </div>
       )}
-      <div className="mt-6 text-center">
-        <Button asChild variant="outline">
-          <Link href="/news">View All News</Link>
-        </Button>
-      </div>
     </section>
   )
 }

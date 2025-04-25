@@ -1,48 +1,12 @@
-"use client"
-
-import { useEffect, useState } from "react"
 import Head from "next/head"
-import { getClientSideClient } from "@/lib/supabase/data-fetching"
-import FeaturedScholarships from "@/components/featured-scholarships-client"
-import UpcomingEvents from "@/components/upcoming-events-client"
-import LatestNews from "@/components/latest-news-client"
-import Newsletter from "@/components/newsletter-client"
-import AdBanner from "@/components/ad-banner-client"
+import { HeroSection } from "@/components/hero-section"
+import { FeaturedScholarshipsClient } from "@/components/featured-scholarships-client"
+import { UpcomingEventsClient } from "@/components/upcoming-events-client"
+import { LatestNewsClient } from "@/components/latest-news-client"
+import { Newsletter } from "@/components/newsletter"
+import { AdBannerClient } from "@/components/ad-banner-client"
 
-export default function Home() {
-  // Client-side data fetching
-  const [scholarships, setScholarships] = useState([])
-  const [events, setEvents] = useState([])
-  const [news, setNews] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchData() {
-      const supabase = getClientSideClient()
-
-      // Fetch featured scholarships
-      const { data: scholarshipsData } = await supabase.from("scholarships").select().eq("featured", true).limit(3)
-
-      // Fetch upcoming events
-      const { data: eventsData } = await supabase
-        .from("events")
-        .select()
-        .gt("event_date", new Date().toISOString())
-        .order("event_date", { ascending: true })
-        .limit(3)
-
-      // Fetch latest news
-      const { data: newsData } = await supabase.from("news").select().order("created_at", { ascending: false }).limit(3)
-
-      setScholarships(scholarshipsData || [])
-      setEvents(eventsData || [])
-      setNews(newsData || [])
-      setLoading(false)
-    }
-
-    fetchData()
-  }, [])
-
+export default function HomePage() {
   return (
     <>
       <Head>
@@ -53,29 +17,20 @@ export default function Home() {
         />
       </Head>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Hero section */}
-        <section className="py-12 text-center">
-          <h1 className="text-4xl font-bold mb-4">Welcome to Campus Guide Nigeria</h1>
-          <p className="text-xl text-muted-foreground mb-8">
-            Your ultimate guide for scholarships, events, and news for Nigerian students
-          </p>
-        </section>
+      <div>
+        <HeroSection />
 
-        {/* Featured scholarships */}
-        <FeaturedScholarships scholarships={scholarships} loading={loading} />
+        <div className="container mx-auto px-4">
+          <FeaturedScholarshipsClient />
 
-        {/* Ad banner */}
-        <AdBanner position="content" className="my-12" />
+          <AdBannerClient position="middle" className="my-8" />
 
-        {/* Upcoming events */}
-        <UpcomingEvents events={events} loading={loading} />
+          <UpcomingEventsClient />
 
-        {/* Latest news */}
-        <LatestNews news={news} loading={loading} />
+          <LatestNewsClient />
 
-        {/* Newsletter */}
-        <Newsletter />
+          <Newsletter />
+        </div>
       </div>
     </>
   )

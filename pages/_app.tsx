@@ -1,9 +1,9 @@
 import type { AppProps } from "next/app"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/contexts/auth-context"
-import "@/app/globals.css"
 import Header from "@/components/header"
 import Footer from "@/components/footer"
+import "@/app/globals.css"
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   return (
