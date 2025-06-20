@@ -1,6 +1,5 @@
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { Database } from "@/types/supabase"
+import { getSupabaseClient } from "./client-singleton"
 
 export function createAuthClient() {
-  return createClientComponentClient<Database>()
+  return getSupabaseClient()
 }
