@@ -1,21 +1,16 @@
 import { createServerClient } from "./server"
 import { createApiClient } from "./api-client"
-import { createClient } from "@supabase/supabase-js"
-import type { Database } from "@/types/supabase"
-import { supabase as supabaseClient } from "./client"
+import { getGlobalSupabaseClient } from "./global-singleton"
 
-// Create a singleton client for client-side usage
-let clientSideClient: ReturnType<typeof createClient<Database>> | null = null
-
+/**
+ * Get client-side Supabase client (global singleton)
+ */
 export function getClientSideClient() {
-  if (!clientSideClient && typeof window !== "undefined") {
-    clientSideClient = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
-  }
-  return clientSideClient || supabaseClient
+  return getGlobalSupabaseClient()
 }
+
+// Use the global singleton for all client-side operations
+const getClientSideSupabase = () => getGlobalSupabaseClient()
 
 // API route data fetching functions for pages directory
 export async function getScholarshipsApi(
@@ -402,7 +397,8 @@ export async function getCategories(type: string) {
 
 // Newsletter
 export async function subscribeToNewsletter(email: string) {
-  const { data, error } = await supabaseClient.from("newsletter_subscriptions").insert([{ email, is_active: true }])
+  const client = getClientSideSupabase()
+  const { data, error } = await client.from("newsletter_subscriptions").insert([{ email, is_active: true }])
 
   if (error) {
     if (error.code === "23505") {
@@ -418,7 +414,8 @@ export async function subscribeToNewsletter(email: string) {
 
 // Saved Items
 export async function saveItem(userId: string, itemId: string, itemType: "scholarship" | "event" | "news") {
-  const { data, error } = await supabaseClient
+  const client = getClientSideSupabase()
+  const { data, error } = await client
     .from("saved_items")
     .insert([{ user_id: userId, item_id: itemId, item_type: itemType }])
 
@@ -435,7 +432,8 @@ export async function saveItem(userId: string, itemId: string, itemType: "schola
 }
 
 export async function unsaveItem(userId: string, itemId: string, itemType: "scholarship" | "event" | "news") {
-  const { error } = await supabaseClient
+  const client = getClientSideSupabase()
+  const { error } = await client
     .from("saved_items")
     .delete()
     .eq("user_id", userId)
@@ -484,7 +482,8 @@ export async function getSavedItems(userId: string, itemType?: "scholarship" | "
 }
 
 export async function isItemSaved(userId: string, itemId: string, itemType: "scholarship" | "event" | "news") {
-  const { data, error } = await supabaseClient
+  const client = getClientSideSupabase()
+  const { data, error } = await client
     .from("saved_items")
     .select("*")
     .eq("user_id", userId)

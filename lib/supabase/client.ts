@@ -1,7 +1,10 @@
-import { getSupabaseClient } from "./client-singleton"
+import { getGlobalSupabaseClient } from "./global-singleton"
 
-// Export the singleton client
-export const supabase = getSupabaseClient()
+// Export the global singleton client
+export const supabase = getGlobalSupabaseClient()
 
-// Also export the getter function for consistency
-export { getSupabaseClient }
+// Re-export functions
+export { getGlobalSupabaseClient, hasGlobalSupabaseClient, getGlobalClientInfo } from "./global-singleton"
+
+// Default export
+export default supabase

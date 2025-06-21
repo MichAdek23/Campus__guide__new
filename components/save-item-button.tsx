@@ -1,70 +1,120 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Bookmark, BookmarkCheck } from "lucide-react"
+import { Heart } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { getClientSideClient } from "@/lib/supabase/data-fetching"
+import { useSupabase } from "@/hooks/use-supabase"
+import { toast } from "@/hooks/use-toast"
 
 interface SaveItemButtonProps {
   itemId: string
   itemType: "scholarship" | "event" | "news"
-  initialSaved?: boolean
+  className?: string
 }
 
-export function SaveItemButton({ itemId, itemType, initialSaved = false }: SaveItemButtonProps) {
-  const [isSaved, setIsSaved] = useState(initialSaved)
-  const [isLoading, setIsLoading] = useState(false)
+export function SaveItemButton({ itemId, itemType, className }: SaveItemButtonProps) {
+  const [isSaved, setIsSaved] = useState(false)
+  const [loading, setLoading] = useState(false)
   const { user } = useAuth()
 
-  const handleSave = async () => {
+  // Use the singleton client through the hook
+  const supabase = useSupabase()
+
+  useEffect(() => {
+    if (user) {
+      checkIfSaved()
+    }
+  }, [user, itemId])
+
+  const checkIfSaved = async () => {
+    if (!user) return
+
+    try {
+      const { data, error } = await supabase
+        .from("saved_items")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("item_id", itemId)
+        .eq("item_type", itemType)
+        .single()
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error checking saved status:", error)
+        return
+      }
+
+      setIsSaved(!!data)
+    } catch (error) {
+      console.error("Error checking saved status:", error)
+    }
+  }
+
+  const toggleSave = async () => {
     if (!user) {
-      // Redirect to login or show login modal
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to save items",
+        variant: "destructive",
+      })
       return
     }
 
-    setIsLoading(true)
+    setLoading(true)
 
     try {
-      const supabase = getClientSideClient()
-
       if (isSaved) {
-        // Remove from saved items
-        await supabase.from("saved_items").delete().match({ user_id: user.id, item_id: itemId, item_type: itemType })
+        const { error } = await supabase
+          .from("saved_items")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("item_id", itemId)
+          .eq("item_type", itemType)
+
+        if (error) throw error
 
         setIsSaved(false)
+        toast({
+          title: "Item removed",
+          description: "Item removed from your saved list",
+        })
       } else {
-        // Add to saved items
-        await supabase.from("saved_items").insert({ user_id: user.id, item_id: itemId, item_type: itemType })
+        const { error } = await supabase.from("saved_items").insert({
+          user_id: user.id,
+          item_id: itemId,
+          item_type: itemType,
+        })
+
+        if (error) throw error
 
         setIsSaved(true)
+        toast({
+          title: "Item saved",
+          description: "Item added to your saved list",
+        })
       }
     } catch (error) {
-      console.error("Error saving item:", error)
+      console.error("Error toggling save status:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update saved status",
+        variant: "destructive",
+      })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
     <Button
-      variant="ghost"
+      variant={isSaved ? "default" : "outline"}
       size="sm"
-      onClick={handleSave}
-      disabled={isLoading || !user}
-      className="flex items-center gap-1"
+      onClick={toggleSave}
+      disabled={loading}
+      className={className}
     >
-      {isSaved ? (
-        <>
-          <BookmarkCheck className="h-4 w-4" />
-          <span>Saved</span>
-        </>
-      ) : (
-        <>
-          <Bookmark className="h-4 w-4" />
-          <span>Save</span>
-        </>
-      )}
+      <Heart className={`h-4 w-4 mr-2 ${isSaved ? "fill-current" : ""}`} />
+      {isSaved ? "Saved" : "Save"}
     </Button>
   )
 }
